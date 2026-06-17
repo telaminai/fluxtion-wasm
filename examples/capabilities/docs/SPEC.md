@@ -18,15 +18,25 @@ design for it.
 
 ## Capability surface
 
-Grouped by predicted risk (the probe pass replaces predictions with facts in
-`PHASING.md`):
+**Proven in WASM.** The probe pass turned the original predictions into facts — the
+web grid runs each capability live in the visitor's browser and the support badge is
+the demo's actual result, not a claim. Even the ones predicted "likely unsupported"
+(reflective service injection) were made to work. Full per-capability detail in
+`PHASING.md`.
 
-| Group | Capabilities | Prediction |
+| Capability | Status | Notes |
 |---|---|---|
-| **Proven** | `onEvent`, DSL `map/filter/peek/push/binaryMap/groupBy`, `addSink`/`removeSink` | ✅ (conformance + showcase) |
-| **Low-risk (event-based)** | `publishSignal`, `triggerCalculation`, change log level (`EventLogControlEvent`/`LogLevel`) | ✅ predicted |
-| **Must test** | audit logging (`LogRecordListener`), `getStreamed`/`getNodeById` (reflective fallback), exported services (`@ExportService`), buffer/window | ⚠️ unknown |
-| **Likely unsupported** | injected services (`@ServiceRegistered`), instance callbacks, `@Inject` (all reflective) | ❌ predicted |
+| `onEvent` + DSL `map/filter/peek/push/binaryMap/groupBy`, `addSink` | ✅ | the proven core (closed-world, no runtime reflection) |
+| `getStreamed` / `getNodeById` | ✅ | map-based node lookup wins over the reflective fallback |
+| `publishSignal`, `triggerCalculation`, log-level (`EventLogControlEvent`) | ✅ | event-routed |
+| Audit logging (`addEventAudit` / `EventLogManager`) | ✅ | de-JUL'd in fluxtion 1.0.8 (pulled `java.util.logging` on ≤1.0.7) |
+| Exported services (`@ExportService`) | ✅ | generated dispatch; exported methods are void/boolean only |
+| **Injected services (`@ServiceRegistered`)** | ✅ | needs a TeaVM `ReflectionSupplier` (the WASM twin of GraalVM reflect-config); without it the reflective scan silently no-ops |
+| Callback delivered as an event | ✅ | reflection-free alternative to `@ServiceRegistered` |
+| JS-implemented service (`@JSFunctor`) | ✅ | a JS function injected as a Java service; bidirectional JS↔WASM |
+| **Generic JSON bridge** — `onEvent({type})` → typed graph → named sinks; edge-decoder re-injection | ✅ | the standard path: no bespoke `@JSExport` per app (the Live Order Desk app is built on it) |
+| Named sinks — pull (`query`) + push (`subscribe`) | ✅ | |
+| Data connectors / event feeds / agent threads; ForkJoin parallel triggers | ❌ by design | host-side integration / multi-threaded — no WASM equivalent (single-threaded) |
 
 ## Design
 
@@ -68,15 +78,17 @@ verbatim into the future `@telamin/fluxtion-wasm-runtime` npm package (see
 ```
 ┌─ Fluxtion in WebAssembly — capability support ───────────────┐
 │  capability            supported   demo                       │
+│  Generic JSON bridge      ✅       [Run ▾]  (objects in/out)    │
 │  DSL map/filter           ✅       [Run ▾]  (live pipeline)     │
-│  Sinks (egress)           ✅       [Run ▾]                      │
-│  getStreamed              ?        [Run ▾]                      │
-│  Signals                  ?        [Run ▾]                      │
-│  Audit logging            ?        [Run ▾]  (live log output)   │
-│  Change log level         ?        [Run ▾]                      │
-│  Exported services        ?        [Run ▾]                      │
-│  Injected services        ❌       [Run ▾]  (shows the error)   │
-│  …                                                            │
+│  Sinks (pull + push)      ✅       [Run ▾]                      │
+│  getStreamed              ✅       [Run ▾]                      │
+│  Signals                  ✅       [Run ▾]                      │
+│  Audit logging            ✅       [Run ▾]  (live log output)   │
+│  Change log level         ✅       [Run ▾]                      │
+│  Exported services        ✅       [Run ▾]                      │
+│  Injected services        ✅       [Run ▾]  (ReflectionSupplier)│
+│  JS-implemented service   ✅       [Run ▾]                      │
+│  Connectors / ForkJoin    ✗        (host-side / threaded)       │
 └──────────────────────────────────────────────────────────────┘
 ```
 

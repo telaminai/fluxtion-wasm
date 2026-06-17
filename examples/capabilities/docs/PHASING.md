@@ -7,7 +7,7 @@ Status tracker. Update the tables as work lands. Date format: absolute.
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Scaffold — single-module pom, docs, CLAUDE.md | ✅ done |
-| 1 | **Probe pass** — drive each capability through WASM, record real ✅/❌ | ✅ done (8 capabilities probed; injected-service is the one ❌; buffer/window + instance-callbacks deferred) |
+| 1 | **Probe pass** — drive each capability through WASM, record real ✅/❌ | ✅ done — 14 capabilities probed, all ✅ incl. injected-service (`@ServiceRegistered` via a TeaVM ReflectionSupplier), JS-implemented service (`@JSFunctor`), the generic JSON bridge + edge-decoder re-injection, and the Live Order Desk app. Only host-side connectors / ForkJoin are ❌ by design (single-threaded) |
 | 2 | Web grid + per-capability demo panels (self-reporting) | ✅ done — `web/index.html` + `app.js`; each row runs live in WASM, validated via DOM sim |
 | 3 | Extract `web/fluxtion-wasm-runtime.js` into a clean, npm-ready library | 🟡 in place as a standalone lib (`createProcessor`/`FluxtionProcessor`); not yet published to npm |
 | 4 | Polish + host (GitHub Pages / marketing site) | ⬜ not started |

@@ -152,13 +152,15 @@
   │   • book.position(sym)            → reads  browser state     │   PositionBook
   │   • limit rule (±1000)                                       │   = your JS
   │   • book.store(sym, next)         → stores browser state     │   (read + write)
-  │   • processReentrantEvent( Accepted | Rejected ) ──┐         │
-  └────────────────────────────────────────────────────│─────────┘
-       re-injected as a TYPED event                     ▼
-  subscribe(Accepted).map(toJson).sink("accepted")        (a normal DSL flow)
-       │
-       ▼   the value reaches the named sink
-  desk.subscribe('accepted', o => addRow(o))                            → updates the UI
+  │   • processReentrantEvent( Accepted | Rejected )             │
+  └──────────────────────────────┬──────────────────────────────┘
+                                 ▼
+                  re-injected as a TYPED event
+                                 │
+         subscribe(Accepted).map(toJson).sink("accepted")
+                                 │
+                                 ▼   the value reaches the named sink
+            desk.subscribe('accepted', o => addRow(o))   → updates the UI
 
   ▸ price events flow the same way:  PriceNode → PriceTick → "marketData" sink
   ▸ every node invocation above is recorded in the audit log below</pre>
