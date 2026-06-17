@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fluxtion in WebAssembly — capabilities</title>
+    <style>
+        :root {
+            --bg:#0e1116; --card:#171c24; --line:#2a313c; --fg:#e6edf3; --muted:#8b96a5;
+            --yes:#2ea043; --no:#da3633; --accent:#4493f8; --code:#0d1117;
+        }
+        * { box-sizing:border-box; }
+        body { margin:0; background:var(--bg); color:var(--fg);
+            font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+            display:flex; justify-content:center; padding:24px; }
+        main { width:100%; max-width:900px; }
+        h1 { font-size:22px; margin:0 0 4px; }
+        .sub { color:var(--muted); margin:0 0 8px; font-size:13px; }
+        .status { font-size:12px; color:var(--muted); margin:0 0 20px; }
+        .status.err { color:var(--no); }
+        a { color:var(--accent); text-decoration:none; }
+        a:hover { text-decoration:underline; }
+
+        /* summary table */
+        table { width:100%; border-collapse:collapse; background:var(--card);
+            border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:28px; }
+        th, td { text-align:left; padding:9px 14px; border-bottom:1px solid var(--line); }
+        thead th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+        tr:last-child td { border-bottom:0; }
+        tr.group td { background:#10141b; font-size:11px; text-transform:uppercase;
+            letter-spacing:.05em; color:var(--muted); font-weight:700; padding:7px 14px; }
+
+        .badge { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap; }
+        .badge.yes { background:rgba(46,160,67,.16); color:var(--yes); }
+        .badge.no  { background:rgba(218,54,51,.16); color:var(--no); }
+
+        /* cards */
+        .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+            padding:18px; margin-bottom:18px; scroll-margin-top:16px; }
+        .card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .card-head h2 { font-size:16px; margin:0; }
+        .what { color:var(--muted); font-size:13.5px; margin:8px 0 14px; }
+        .card-link { margin:-6px 0 14px; font-size:13.5px; }
+        .codes { display:grid; grid-template-columns:1fr; gap:12px; }
+        .code-title { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:5px; }
+        pre { margin:0; background:var(--code); border:1px solid var(--line); border-radius:8px;
+            padding:11px 12px; overflow:auto; font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+            color:#cdd9e5; white-space:pre; }
+        /* syntax highlight tokens (GitHub-dark palette) */
+        .hl-cm { color:#8b949e; font-style:italic; }   /* comment */
+        .hl-kw { color:#ff7b72; }                       /* keyword */
+        .hl-st { color:#a5d6ff; }                       /* string */
+        .hl-nu { color:#79c0ff; }                       /* number */
+        .hl-li { color:#79c0ff; }                       /* literal (true/false/null) */
+        .hl-fn { color:#d2a8ff; }                       /* call / method name */
+        .hl-ty { color:#ffa657; }                       /* type / class */
+        .hl-an { color:#7ee787; }                       /* annotation */
+        .run-row { margin:14px 0 10px; }
+        .run-btn { background:var(--accent); color:#fff; border:0; border-radius:8px;
+            padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer; }
+        .run-btn:hover { filter:brightness(1.08); }
+        .output { background:var(--code); border:1px solid var(--line); border-radius:8px;
+            padding:11px 12px; font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+            color:var(--muted); white-space:pre-wrap; min-height:2.4em; }
+        .output.ok { color:#9fe0ad; border-color:rgba(46,160,67,.4); }
+        .output.err { color:#e8a0a0; border-color:rgba(218,54,51,.4); }
+
+        footer { color:var(--muted); font-size:12px; margin-top:18px; }
+        code { background:#21262d; padding:1px 5px; border-radius:4px; font-size:12px; }
+
+        /* getting started + per-card full-example expand */
+        details { background:var(--card); border:1px solid var(--line); border-radius:12px; margin-bottom:18px; }
+        details > summary { cursor:pointer; padding:12px 16px; font-weight:600; font-size:14px; list-style:none; }
+        details > summary::-webkit-details-marker { display:none; }
+        details > summary::before { content:"▸ "; color:var(--muted); }
+        details[open] > summary::before { content:"▾ "; }
+        details .body { padding:0 16px 16px; }
+        .card details { margin:14px 0 0; background:var(--code); }
+        .code-wrap { position:relative; margin-bottom:12px; }
+        .code-wrap .code-title { margin:0 0 5px; }
+        .copy-btn { position:absolute; top:26px; right:8px; background:#21262d; color:var(--muted);
+            border:1px solid var(--line); border-radius:6px; font-size:11px; padding:3px 8px; cursor:pointer; }
+        .copy-btn:hover { color:var(--fg); }
+        .copy-btn.done { color:var(--yes); border-color:rgba(46,160,67,.4); }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Fluxtion in WebAssembly — capabilities</h1>
+    <p class="sub">
+        A Fluxtion event processor compiled to WASM (TeaVM), running entirely in your
+        browser. Each capability below shows <strong>what it validates</strong>, the
+        <strong>Java that receives the call</strong>, the <strong>JavaScript that makes it</strong>,
+        and a <strong>Run</strong> button — every result is produced live in WASM on this device.
+    </p>
+    <p class="sub">▶ See it all working together in a small app:
+        <a href="./app-orderdesk.html"><strong>Live Order Desk demo →</strong></a>
+        (events → sinks, a JS-backed service reading/storing browser state, live audit log).</p>
+    <p class="status" id="status">loading WASM…</p>
+
+    <div id="gettingStarted"></div>
+
+    <table>
+        <thead><tr><th>Capability</th><th>WASM</th></tr></thead>
+        <tbody id="summary"></tbody>
+    </table>
+
+    <div id="cards"></div>
+
+    <footer>
+        <code>fluxtion-runtime 1.0.8</code> · TeaVM 0.14.1 · WASM-GC · no server, no AI on the path.
+        See <code>docs/PHASING.md</code> for how each capability was probed.
+    </footer>
+</main>
+
+<script src="./classes.wasm-runtime.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

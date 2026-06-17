@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.telamin.fluxtion</groupId>
+    <artifactId>fluxtion-wasm-aggregator</artifactId>
+    <version>0.1.0</version>
+    <packaging>pom</packaging>
+
+    <name>fluxtion-wasm</name>
+    <description>
+        Aggregator: builds the fluxtion-wasm-bootstrap host lib, then the
+        capabilities reference example (which TeaVM-compiles to WASM-GC). The JS
+        host lib lives in runtime/ (npm, built with node, not part of this reactor).
+    </description>
+
+    <!-- Reactor order: bootstrap first (installed to the local repo), then the
+         example which depends on it. The modules keep their own standalone poms;
+         this only aggregates the build. -->
+    <modules>
+        <module>bootstrap</module>
+        <module>examples/capabilities</module>
+    </modules>
+</project>

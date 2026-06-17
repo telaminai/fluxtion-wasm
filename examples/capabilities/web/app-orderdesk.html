@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Order Desk — Fluxtion SEP in WASM</title>
+<style>
+  :root {
+    --bg:#0e1116; --card:#171c24; --line:#2a313c; --fg:#e6edf3; --muted:#8b96a5;
+    --yes:#2ea043; --no:#da3633; --accent:#4493f8; --code:#0d1117;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:26px 20px 60px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 4px; font-size:13px; }
+  .status { font-size:12px; color:var(--muted); margin:8px 0 20px; }
+  .status.err { color:var(--no); }
+  a { color:var(--accent); text-decoration:none; }
+  .nav { font-size:13px; margin-bottom:14px; }
+
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid { grid-template-columns:1fr; } }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .panel h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 10px; }
+
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
+  .field { display:flex; flex-direction:column; gap:3px; }
+  .field label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  select, input { background:var(--code); color:var(--fg); border:1px solid var(--line);
+    border-radius:7px; padding:7px 9px; font:13px ui-monospace,Menlo,monospace; }
+  input[type=number]{ width:90px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:8px 14px;
+    font-size:13px; font-weight:600; cursor:pointer; }
+  button.ghost { background:#21262d; color:var(--fg); border:1px solid var(--line); }
+  button:hover { filter:brightness(1.08); }
+
+  table { width:100%; border-collapse:collapse; font:13px ui-monospace,Menlo,monospace; }
+  th,td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  td.num { text-align:right; }
+  .pos-long { color:var(--yes); } .pos-short { color:var(--no); }
+
+  .tiles { display:flex; flex-wrap:wrap; gap:10px; }
+  .tile { background:var(--code); border:1px solid var(--line); border-radius:10px; padding:8px 12px; min-width:120px; }
+  .tile .sym { font-size:11px; color:var(--muted); }
+  .tile .px { font:16px ui-monospace,Menlo,monospace; }
+
+  ul.feed { list-style:none; margin:0; padding:0; max-height:200px; overflow:auto; font:12.5px ui-monospace,Menlo,monospace; }
+  ul.feed li { padding:4px 6px; border-bottom:1px solid var(--line); }
+  ul.feed li.acc { color:#9fe0ad; } ul.feed li.rej { color:#e8a0a0; }
+
+  pre.audit { background:var(--code); border:1px solid var(--line); border-radius:8px; margin:0;
+    padding:10px; max-height:240px; overflow:auto; font:11.5px/1.45 ui-monospace,Menlo,monospace;
+    color:#cdd9e5; white-space:pre-wrap; }
+  hr.sep { border:0; border-top:1px solid var(--line); margin:10px 0 0; }
+  pre.flow { background:var(--code); border:1px solid var(--line); border-radius:8px; margin:0;
+    padding:12px; overflow:auto; font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+    color:#cdd9e5; white-space:pre; }
+  .au-ev { color:#ffa657; } .au-node { color:#7ee787; } .au-sep { color:#3a4250; }
+  footer { color:var(--muted); font-size:12px; margin-top:22px; }
+  .full { grid-column:1 / -1; }
+
+  /* "How it's built" — collapsible tabbed source viewer (collapsed by default) */
+  details.code { margin-bottom:4px; border:1px solid var(--line); border-radius:10px; background:var(--code); }
+  details.code > summary { cursor:pointer; list-style:none; padding:9px 12px;
+    font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  details.code > summary::-webkit-details-marker { display:none; }
+  details.code > summary::before { content:"▸ "; color:var(--muted); }
+  details.code[open] > summary::before { content:"▾ "; }
+  .tabs { display:flex; flex-wrap:wrap; gap:4px; padding:0 10px; border-bottom:1px solid var(--line); }
+  .tab { background:transparent; color:var(--muted); border:1px solid transparent; border-bottom:0;
+    border-radius:7px 7px 0 0; font:11.5px ui-monospace,Menlo,monospace; padding:5px 10px; cursor:pointer; }
+  .tab:hover { color:var(--fg); }
+  .tab.active { color:var(--fg); background:var(--card); border-color:var(--line); }
+  .code-wrap { position:relative; }
+  .code-wrap pre { margin:0; background:transparent; border:0; border-radius:0 0 10px 10px;
+    padding:12px; overflow:auto; max-height:460px;
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:#cdd9e5; white-space:pre; }
+  .copy-btn { position:absolute; top:8px; right:8px; background:#21262d; color:var(--muted);
+    border:1px solid var(--line); border-radius:6px; font-size:11px; padding:3px 8px; cursor:pointer; }
+  .copy-btn:hover { color:var(--fg); } .copy-btn.done { color:var(--yes); border-color:rgba(46,160,67,.4); }
+  /* syntax highlight tokens (GitHub-dark palette) */
+  .hl-cm { color:#8b949e; font-style:italic; } .hl-kw { color:#ff7b72; } .hl-st { color:#a5d6ff; }
+  .hl-nu { color:#79c0ff; } .hl-li { color:#79c0ff; } .hl-fn { color:#d2a8ff; }
+  .hl-ty { color:#ffa657; } .hl-an { color:#7ee787; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav"><a href="./index.html">← capability grid</a></div>
+  <h1>Live Order Desk</h1>
+  <p class="sub">A Fluxtion event processor compiled to WebAssembly, driven from this page through the
+    generic JSON bridge. Orders and prices are events; risk decisions, positions and market data come back
+    through named sinks. <strong>No server, no AI on the path</strong> — the rules run on-device in WASM.</p>
+  <p class="status" id="status">loading WASM…</p>
+
+  <div class="grid">
+    <!-- controls -->
+    <div class="panel full">
+      <h2>Send events (JSON in)</h2>
+      <div class="controls">
+        <div class="field"><label>symbol</label>
+          <select id="symbol"><option>EURUSD</option><option>GBPUSD</option><option>USDJPY</option></select></div>
+        <div class="field"><label>side</label>
+          <select id="side"><option>buy</option><option>sell</option></select></div>
+        <div class="field"><label>qty</label><input id="qty" type="number" value="100" step="50"></div>
+        <button id="sendOrder">Send order</button>
+        <div class="field"><label>price</label><input id="price" type="number" value="1.0850" step="0.0005"></div>
+        <button id="sendPrice" class="ghost">Send price</button>
+        <button id="rand" class="ghost">Random burst ×8</button>
+      </div>
+      <p class="sub" style="margin:10px 0 0">Risk rule (in the SEP): reject if qty ≤ 0 or the resulting net
+        position would exceed ±1000. Accepted orders update the position book via a JS-backed service.</p>
+    </div>
+
+    <!-- positions (browser state, written by the SEP service) -->
+    <div class="panel">
+      <h2>Positions · browser state read + stored by the SEP service</h2>
+      <table><thead><tr><th>symbol</th><th class="num">net position</th></tr></thead>
+        <tbody id="positions"><tr><td colspan="2" style="color:var(--muted)">none yet</td></tr></tbody></table>
+    </div>
+
+    <!-- market data (marketData sink) -->
+    <div class="panel">
+      <h2>Market data · "marketData" sink</h2>
+      <div class="tiles" id="market"><span class="sub">no ticks yet</span></div>
+    </div>
+
+    <!-- accepted (accepted sink) -->
+    <div class="panel">
+      <h2>Accepted · "accepted" sink</h2>
+      <ul class="feed" id="accepted"></ul>
+    </div>
+
+    <!-- rejected (rejected sink) -->
+    <div class="panel">
+      <h2>Rejected · "rejected" sink</h2>
+      <ul class="feed" id="rejected"></ul>
+    </div>
+
+    <!-- separator + event-flow explainer, above the audit log -->
+    <hr class="sep full">
+    <div class="panel full">
+      <h2>Event flow — how one event travels the SEP</h2>
+      <pre class="flow">desk.onEvent({ type:'order', symbol:'EURUSD', side:'buy', qty:100 })       ← JS sends a plain object
+       │
+       ▼   the bridge wraps it as StringEvent("order", json); "type" routes it
+  ┌─────────────────────────────────────────────────────────────┐
+  │ OrderRiskNode   @OnEventHandler(filterString = "order")      │
+  │   • book.position(sym)            → reads  browser state     │   PositionBook
+  │   • limit rule (±1000)                                       │   = your JS
+  │   • book.store(sym, next)         → stores browser state     │   (read + write)
+  │   • processReentrantEvent( Accepted | Rejected ) ──┐         │
+  └────────────────────────────────────────────────────│─────────┘
+       re-injected as a TYPED event                     ▼
+  subscribe(Accepted).map(toJson).sink("accepted")        (a normal DSL flow)
+       │
+       ▼   the value reaches the named sink
+  desk.subscribe('accepted', o => addRow(o))                            → updates the UI
+
+  ▸ price events flow the same way:  PriceNode → PriceTick → "marketData" sink
+  ▸ every node invocation above is recorded in the audit log below</pre>
+    </div>
+
+    <!-- audit (drainAudit) -->
+    <div class="panel full">
+      <h2>Audit log · drainAudit() — the diagnostic trail of every node that fired</h2>
+      <pre class="audit" id="audit">(send an event to see the audit trail)</pre>
+    </div>
+
+    <!-- the source for this app -->
+    <div class="panel full">
+      <h2>How it's built — the code behind this page</h2>
+      <p class="sub" style="margin:0 0 12px">The whole app is the generic bridge plus one service
+        wiring. The Java is the graph (risk rule + sinks); the JavaScript drives it with plain objects.</p>
+      <div id="code"></div>
+    </div>
+  </div>
+
+  <footer>
+    One wasm, two exported hosts: this app uses <code>OrderDeskHost</code> (the generic
+    <code>JsonBridgeHost</code> + one <code>wirePositions</code> service call). Same
+    <code>@telamin/fluxtion-wasm-runtime</code> as the capability grid.
+  </footer>
+</div>
+
+<!-- TeaVM WASM-GC runtime loader (sets globalThis.TeaVM); copied in by `mvn install` -->
+<script src="./classes.wasm-runtime.js"></script>
+<script type="module" src="./orderdesk.js"></script>
+</body>
+</html>

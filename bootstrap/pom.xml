@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.telamin.fluxtion</groupId>
+    <artifactId>fluxtion-wasm-bootstrap</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>fluxtion-wasm-bootstrap</name>
+    <description>
+        Reusable Java host layer compiled INTO a TeaVM-compiled Fluxtion SEP. The
+        generic JSON value bridge (JsonBridgeHost) lets JavaScript drive any SEP with
+        plain objects — no bespoke @JSExport verb per app — plus the wire envelope
+        (StringEvent), a reflection-free flat-JSON reader (MiniJson), and the @JSFunctor
+        sink callback (SinkListener). TeaVM-clean: no reflection, no SerializedLambda,
+        no java.util.logging, no threads/IO. Pairs with the JS host lib
+        @telamin/fluxtion-wasm-runtime.
+    </description>
+    <url>https://github.com/telaminai/fluxtion-wasm-testharness</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <fluxtion.version>1.0.8</fluxtion.version>
+        <teavm.version>0.14.1</teavm.version>
+    </properties>
+
+    <dependencies>
+        <!-- DataFlow / EventLogControlEvent / Service — the SEP surface the bridge drives -->
+        <dependency>
+            <groupId>com.telamin.fluxtion</groupId>
+            <artifactId>fluxtion-runtime</artifactId>
+            <version>${fluxtion.version}</version>
+        </dependency>
+        <!-- @JSFunctor / JSObject for SinkListener. provided: the consuming SEP module's
+             TeaVM compile supplies it; not bundled into this lib's jar. -->
+        <dependency>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-jso</artifactId>
+            <version>${teavm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

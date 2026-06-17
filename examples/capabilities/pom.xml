@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.telamin.fluxtion.wasm</groupId>
+    <artifactId>fluxtion-wasm-capabilities</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <!--
+      A SINGLE-module project that probes which Fluxtion capabilities work in
+      WASM and demos them in the browser. The generated SEP is committed (the
+      generator is a manual step), so one module carries everything: nodes + SEP
+      + host + @JSExport surface + TeaVM compile + JVM tests.
+
+      Build (Java 21):  mvn clean install      (tests JVM, builds wasm, copies to web/)
+      Serve the demo:   cd web && python3 -m http.server 8000
+
+      The browser JS in web/fluxtion-wasm-runtime.js is written as a standalone
+      library, ready to be extracted into its own npm package.
+    -->
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <fluxtion.version>1.0.8</fluxtion.version>
+        <teavm.version>0.14.1</teavm.version>
+        <junit.version>4.13.2</junit.version>
+        <!-- only used by the fix-validation profile (local generation); override on
+             the CLI to match your snapshot, e.g. -Dgenerator.version=1.0.49-SNAPSHOT -->
+        <generator.version>1.0.48</generator.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.telamin.fluxtion</groupId>
+            <artifactId>fluxtion-runtime</artifactId>
+            <version>${fluxtion.version}</version>
+        </dependency>
+        <!-- the reusable WASM host layer: JsonBridgeHost / StringEvent / MiniJson /
+             SinkListener. TeaVM compiles it into the wasm. -->
+        <dependency>
+            <groupId>com.telamin.fluxtion</groupId>
+            <artifactId>fluxtion-wasm-bootstrap</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+        <!-- builder is only used by the manual generator (GenerateCapabilities);
+             TeaVM compiles from ExportMain and never reaches it -->
+        <dependency>
+            <groupId>com.telamin.fluxtion</groupId>
+            <artifactId>fluxtion-builder</artifactId>
+            <version>${fluxtion.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-classlib</artifactId>
+            <version>${teavm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-jso</artifactId>
+            <version>${teavm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- SPIKE: teavm-core gives ReflectionSupplier/MethodDescriptor so we can mark
+             @ServiceRegistered methods reflectable (TeaVM's own reflection-metadata route,
+             the WASM twin of GraalVM reflect-config). Build-time only. -->
+        <dependency>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-core</artifactId>
+            <version>${teavm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>com.telamin.fluxtion.wasm.cap.gen.GenerateCapabilities</mainClass>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.teavm</groupId>
+                <artifactId>teavm-maven-plugin</artifactId>
+                <version>${teavm.version}</version>
+                <configuration>
+                    <mainClass>com.telamin.fluxtion.wasm.cap.host.ExportMain</mainClass>
+                    <targetType>WEBASSEMBLY_GC</targetType>
+                    <targetDirectory>${project.build.directory}/wasm-gc</targetDirectory>
+                    <optimizationLevel>SIMPLE</optimizationLevel>
+                    <debugInformationGenerated>true</debugInformationGenerated>
+                    <stopOnErrors>true</stopOnErrors>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>wasm-compile</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>copy-webassembly-gc-runtime</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-wasm-to-web</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.basedir}/web</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.build.directory}/wasm-gc</directory>
+                                    <includes>
+                                        <include>classes.wasm</include>
+                                        <include>classes.wasm-runtime.js</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+          Validate a runtime/generator FIX against the capability matrix using local
+          SNAPSHOTS instead of the released 1.0.8 + cloud generator.
+
+            mvn install your fluxtion-runtime / fluxtion-builder / fluxtion-generator-core
+            snapshots to ~/.m2, then:
+
+            # regenerate the SEP with your snapshots, generated LOCALLY (not the cloud
+            # generator), so generator-branch changes (e.g. M4 static service wiring) ARE
+            # exercised. Add -Dcap.runtimeAudit=true to test the real EventLogManager.
+            mvn -Pfix-validation -Dfluxtion.version=1.0.9-SNAPSHOT \
+                -Dgenerator.version=1.0.49-SNAPSHOT [-Dcap.runtimeAudit=true] \
+                compile exec:java -Dexec.mainClass=com.telamin.fluxtion.wasm.cap.gen.GenerateCapabilities
+            cp target/generated-sources/fluxtion/com/telamin/fluxtion/wasm/cap/generated/CapabilitiesProcessor.java \
+               src/main/java/com/telamin/fluxtion/wasm/cap/generated/
+
+            # then build + run the matrix against the snapshots
+            mvn -Pfix-validation -Dfluxtion.version=1.0.9-SNAPSHOT clean install
+            node probe/run-probes.mjs
+
+          The injectedService row flips ❌→✅ once the generated SEP carries static
+          wireServices (M4). Audit flips when EventLogManager is de-JUL'd AND you
+          regenerated with -Dcap.runtimeAudit=true.
+        -->
+        <profile>
+            <id>fix-validation</id>
+            <dependencies>
+                <!-- a local generator on the classpath makes generation run LOCALLY
+                     (not via the deployed cloud generator), so a generator-branch fix
+                     is what actually emits the SEP -->
+                <dependency>
+                    <groupId>com.telamin.fluxtion</groupId>
+                    <artifactId>fluxtion-generator-core</artifactId>
+                    <version>${generator.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!--
+          regen — regenerate the committed SEP straight into src/main/java (no manual
+          copy step). The default audit path is the REAL runtime EventLogManager
+          (de-JUL'd in 1.0.8). Compose with fix-validation for generator fixes:
+
+            # regenerate the committed SEP (default: real EventLogManager):
+            mvn -Pregen compile exec:java && mvn clean install && node probe/run-probes.mjs
+
+            # validate a generator fix (e.g. M4 static service wiring) — local generation:
+            mvn -Pregen,fix-validation -Dgenerator.version=1.0.49-SNAPSHOT compile exec:java
+            mvn -Pfix-validation clean install && node probe/run-probes.mjs
+
+          regen overwrites the committed SEP; `git checkout` it to restore afterwards.
+        -->
+        <profile>
+            <id>regen</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <configuration>
+                            <!-- write the generated SEP directly into the source tree -->
+                            <arguments>
+                                <argument>${project.basedir}/src/main/java</argument>
+                            </arguments>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+          shim-audit — generate the SEP with the JUL-free WasmEventLogManager shim
+          instead of the real EventLogManager. Only needed to build against RELEASED
+          1.0.7 (where EventLogManager still pulls java.util.logging); on 1.0.8+ the
+          default (real addEventAudit) works in WASM. Use with -Pregen.
+            mvn -Pregen,shim-audit -Dfluxtion.version=1.0.7 compile exec:java
+        -->
+        <profile>
+            <id>shim-audit</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <configuration>
+                            <systemProperties>
+                                <systemProperty>
+                                    <key>cap.shimAudit</key>
+                                    <value>true</value>
+                                </systemProperty>
+                            </systemProperties>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

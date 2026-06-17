@@ -1,0 +1,47 @@
+{
+  "name": "@telamin/fluxtion-wasm-runtime",
+  "version": "0.1.0",
+  "description": "Host bindings for a TeaVM-compiled Fluxtion SEP — load a classes.wasm and drive it from Node, the browser, a web worker, or the edge.",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "module": "./src/index.mjs",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./src/index.mjs",
+      "default": "./src/index.mjs"
+    }
+  },
+  "files": [
+    "src",
+    "types",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "sync": "node scripts/sync-vendored.mjs"
+  },
+  "keywords": [
+    "fluxtion",
+    "wasm",
+    "wasm-gc",
+    "teavm",
+    "event-processing",
+    "stream-processing",
+    "cep"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telaminai/fluxtion-wasm-testharness.git",
+    "directory": "fluxtion-wasm-runtime"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0"
+}
