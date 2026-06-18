@@ -37,11 +37,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/telaminai/fluxtion-wasm-testharness.git",
-    "directory": "fluxtion-wasm-runtime"
+    "url": "https://github.com/telaminai/fluxtion-wasm.git",
+    "directory": "runtime"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://repo.repsy.io/fluxtion/npm/"
   },
   "license": "Apache-2.0"
 }

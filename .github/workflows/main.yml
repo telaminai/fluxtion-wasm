@@ -1,0 +1,28 @@
+name: CI build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'adopt'
+
+      # Build the Java host lib + the emitter prototype. The capabilities example
+      # is a TeaVM-GC compile (heavy + needs the wasm toolchain) so it is built on
+      # demand, not on every CI push — the two publishable/unit-tested modules are
+      # what gate a PR here.
+      - name: Build bootstrap + host-emitter
+        run: mvn -B -s .github/settings.xml -pl bootstrap,host-emitter verify
+        env:
+          MAVEN_USERNAME: ${{ secrets.REPSY_USER }}
+          MAVEN_CENTRAL_TOKEN: ${{ secrets.REPSY_PASSWORD }}

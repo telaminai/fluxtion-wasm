@@ -1,0 +1,46 @@
+name: Publish fluxtion-wasm-runtime to Repsy npm
+
+# Push to the `release-npm` branch to publish the JS runtime at its current version.
+# Bump runtime/package.json "version" before pushing — the registry rejects a
+# re-publish of an existing version.
+on:
+  push:
+    branches: [release-npm]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Scope @telamin -> repsy npm registry, with basic auth built from the same
+      # REPSY_USER / REPSY_PASSWORD secrets the Maven publish uses. _auth is the
+      # base64 of user:password; always-auth makes npm send it on publish.
+      - name: Write .npmrc
+        env:
+          REPSY_USER: ${{ secrets.REPSY_USER }}
+          REPSY_PASSWORD: ${{ secrets.REPSY_PASSWORD }}
+        run: |
+          AUTH=$(printf '%s:%s' "$REPSY_USER" "$REPSY_PASSWORD" | base64 -w0)
+          {
+            echo "@telamin:registry=https://repo.repsy.io/fluxtion/npm/"
+            echo "//repo.repsy.io/fluxtion/npm/:_auth=$AUTH"
+            echo "//repo.repsy.io/fluxtion/npm/:always-auth=true"
+          } > .npmrc
+
+      - name: Test
+        run: npm test
+
+      - name: Publish
+        run: npm publish
+
+      - name: Remove .npmrc
+        if: always()
+        run: rm -f .npmrc
