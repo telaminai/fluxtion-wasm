@@ -274,9 +274,12 @@ a re-deploy of an existing version.
 - **`.github/workflows/release.yml`** — `on: push: branches: [release]`; JDK 21; runs
   `mvn -B -s .github/settings.xml -pl bootstrap -DskipTests deploy` (the `-pl bootstrap`
   scopes the reactor so the TeaVM example + the host-emitter are not published), then
-  merges `release` → `main`. (Plain `deploy` does no git tagging — the published
-  artifact + the pom version are the provenance.) Env maps
-  `MAVEN_USERNAME=${{ secrets.REPSY_USER }}`, `MAVEN_CENTRAL_TOKEN=${{ secrets.REPSY_PASSWORD }}`.
+  cuts a **git tag + GitHub Release** `bootstrap-v<version>` via `gh release create`
+  (auto-creating the tag at the deployed commit, with notes carrying the Maven
+  coordinates), then merges `release` → `main`. Env maps
+  `MAVEN_USERNAME=${{ secrets.REPSY_USER }}`, `MAVEN_CENTRAL_TOKEN=${{ secrets.REPSY_PASSWORD }}`,
+  and `GH_TOKEN=${{ github.token }}` for the release. (Plain `deploy` does not tag — the
+  `gh release` step is what makes a release recoverable via `git checkout bootstrap-v<version>`.)
 - **`.github/workflows/main.yml`** — CI on push/PR to `main`: builds + tests `bootstrap`
   and `host-emitter` (`-pl bootstrap,host-emitter verify`).
 
@@ -289,16 +292,33 @@ Consumers add the read repository above plus the dependency.
 
 - **`.github/workflows/publish-npm.yml`** — `on: push: branches: [release-npm]`; writes a
   throw-away `runtime/.npmrc` (scope→registry + `_auth` = base64 of `REPSY_USER:REPSY_PASSWORD`
-  + `always-auth`), runs `npm test` then `npm publish`, and deletes the `.npmrc`. `.npmrc`
-  is gitignored so a stray local one can't leak. Bump `runtime/package.json` `version`
-  before pushing to `release-npm`.
+  + `always-auth`), runs `npm test` then `npm publish`, cuts a git tag + GitHub Release
+  `runtime-v<version>` (`gh release create`, notes carrying the npm install line), then
+  deletes the `.npmrc`. `.npmrc` is gitignored so a stray local one can't leak.
 
 Consumers point the `@telamin` scope at the registry:
 `npm config set @telamin:registry https://repo.repsy.io/fluxtion/npm/`.
 
-### 9.3 Status
+### 9.3 How to cut a release
 
-✅ **Config landed** — both publish pipelines are wired and the `REPSY_USER` /
-`REPSY_PASSWORD` secrets are set on GitHub. To cut a release: bump the version and push to
-`release` (Java) or `release-npm` (JS). The local reactor still builds everything and the
-capabilities app consumes `bootstrap` as a reactor dependency in the meantime.
+The workflows run from the branch you push to, so the **release branch must carry the
+latest workflow** (which lives on `main`). The procedure for each side:
+
+1. `git checkout release && git merge main` (bring the latest workflow + code across).
+2. Bump the version — `bootstrap/pom.xml` `<version>` (Java) — in that same branch.
+3. `git push origin release`. CI deploys to Repsy, cuts the `bootstrap-v<version>` tag +
+   GitHub Release, and merges `release` → `main`.
+
+For JS, the same with `release-npm` and `runtime/package.json` `version` → `runtime-v<version>`.
+
+Re-pushing an already-published version fails fast at the deploy/publish step (Repsy
+rejects the duplicate) — bump the version, don't force it. Tags + notes are published
+under **https://github.com/telaminai/fluxtion-wasm/releases**.
+
+### 9.4 Status
+
+✅ **Live.** `fluxtion-wasm-bootstrap:0.1.0` (Repsy Maven) and
+`@telamin/fluxtion-wasm-runtime@0.1.0` (Repsy npm) are published, each with a GitHub
+Release. Both pipelines are wired with tag + Release creation; the `REPSY_USER` /
+`REPSY_PASSWORD` secrets are set. The local reactor still builds everything and the
+capabilities app consumes `bootstrap` as a reactor dependency.

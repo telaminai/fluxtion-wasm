@@ -30,6 +30,32 @@ jobs:
           MAVEN_USERNAME: ${{ secrets.REPSY_USER }}
           MAVEN_CENTRAL_TOKEN: ${{ secrets.REPSY_PASSWORD }}
 
+      # Tag the exact commit that produced this artifact AND publish a GitHub Release
+      # (gh creates the tag at --target). This is the recoverable record of a release:
+      #   git checkout bootstrap-v<version>
+      # and it populates https://github.com/telaminai/fluxtion-wasm/releases.
+      # Version is read from the pom (no parent, so the first <version> is the project).
+      - name: GitHub Release + tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep -m1 '<version>' bootstrap/pom.xml | sed -E 's/.*<version>([^<]+)<.*/\1/')
+          echo "Releasing bootstrap-v$VERSION at $GITHUB_SHA"
+          cat > /tmp/notes.md <<EOF
+          Published to Repsy Maven (public).
+
+          Maven coordinates:
+            groupId:    com.telamin.fluxtion
+            artifactId: fluxtion-wasm-bootstrap
+            version:    $VERSION
+
+          Read repository: https://repo.repsy.io/mvn/fluxtion/fluxtion-public
+          EOF
+          gh release create "bootstrap-v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "fluxtion-wasm-bootstrap $VERSION" \
+            --notes-file /tmp/notes.md
+
       - name: Merge release -> main
         uses: devmasx/merge-branch@master
         with:

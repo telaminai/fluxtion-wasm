@@ -41,6 +41,27 @@ jobs:
       - name: Publish
         run: npm publish
 
+      # Tag + GitHub Release for the published JS version (gh creates the tag at
+      # --target). Recoverable as `git checkout runtime-v<version>` and listed at
+      # https://github.com/telaminai/fluxtion-wasm/releases.
+      - name: GitHub Release + tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Releasing runtime-v$VERSION at $GITHUB_SHA"
+          cat > /tmp/notes.md <<EOF
+          Published to Repsy npm.
+
+          Install:
+            npm config set @telamin:registry https://repo.repsy.io/fluxtion/npm/
+            npm install @telamin/fluxtion-wasm-runtime@$VERSION
+          EOF
+          gh release create "runtime-v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "@telamin/fluxtion-wasm-runtime $VERSION" \
+            --notes-file /tmp/notes.md
+
       - name: Remove .npmrc
         if: always()
         run: rm -f .npmrc
