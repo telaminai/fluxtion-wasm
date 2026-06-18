@@ -311,9 +311,12 @@ latest workflow** (which lives on `main`). The procedure for each side:
 
 For JS, the same with `release-npm` and `runtime/package.json` `version` → `runtime-v<version>`.
 
-Re-pushing an already-published version fails fast at the deploy/publish step (Repsy
-rejects the duplicate) — bump the version, don't force it. Tags + notes are published
-under **https://github.com/telaminai/fluxtion-wasm/releases**.
+Re-pushing an already-published version still re-deploys to Repsy (it permits
+overwriting a version), but then **fails at the `gh release create` step** because the
+`bootstrap-v<version>` / `runtime-v<version>` Release already exists — so a forgotten
+version bump surfaces as a red ❌ on the release, not a silent re-release. Bump the
+version. Tags + notes are published under
+**https://github.com/telaminai/fluxtion-wasm/releases**.
 
 ### 9.4 Status
 
