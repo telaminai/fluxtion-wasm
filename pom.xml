@@ -21,6 +21,7 @@
          this only aggregates the build. -->
     <modules>
         <module>bootstrap</module>
+        <module>host-emitter</module>
         <module>examples/capabilities</module>
     </modules>
 </project>

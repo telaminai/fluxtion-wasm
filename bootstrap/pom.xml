@@ -19,7 +19,13 @@
         no java.util.logging, no threads/IO. Pairs with the JS host lib
         @telamin/fluxtion-wasm-runtime.
     </description>
-    <url>https://github.com/telaminai/fluxtion-wasm-testharness</url>
+    <url>https://github.com/telaminai/fluxtion-wasm</url>
+
+    <scm>
+        <connection>scm:git:https://github.com/telaminai/fluxtion-wasm.git</connection>
+        <developerConnection>scm:git:https://github.com/telaminai/fluxtion-wasm.git</developerConnection>
+        <url>https://github.com/telaminai/fluxtion-wasm</url>
+    </scm>
 
     <licenses>
         <license>
@@ -35,6 +41,27 @@
         <fluxtion.version>1.0.8</fluxtion.version>
         <teavm.version>0.14.1</teavm.version>
     </properties>
+
+    <!-- Resolve the fluxtion-runtime dependency from the public repsy mirror, so a
+         clean CI / external build needs no pre-seeded ~/.m2 settings. -->
+    <repositories>
+        <repository>
+            <id>repsy-fluxtion-public</id>
+            <name>Fluxtion public repo</name>
+            <url>https://repo.repsy.io/mvn/fluxtion/fluxtion-public</url>
+        </repository>
+    </repositories>
+
+    <!-- mvn deploy publishes this jar to the public repsy repo. The server id must
+         match the <server> in .github/settings.xml (repsy-fluxtion). Write URL has no
+         /mvn/ segment; the read mirror above does. -->
+    <distributionManagement>
+        <repository>
+            <id>repsy-fluxtion</id>
+            <name>Fluxtion public Maven repo on Repsy</name>
+            <url>https://repo.repsy.io/fluxtion/fluxtion-public</url>
+        </repository>
+    </distributionManagement>
 
     <dependencies>
         <!-- DataFlow / EventLogControlEvent / Service — the SEP surface the bridge drives -->
