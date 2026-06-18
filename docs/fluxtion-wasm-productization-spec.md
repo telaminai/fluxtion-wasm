@@ -204,14 +204,16 @@ server stage — the page describes the developer pipeline, not a one-click clou
 
 ## 7. Phasing
 
-| Phase | Deliverable | Status (2026-06-17) |
+| Phase | Deliverable | Status (2026-06-18) |
 |---|---|---|
-| **P0** | JS runtime productized (v0.1.0); capabilities grid + Order Desk built; bridge proven | ✅ done (prior session) |
-| **P1** | Extract **`fluxtion-wasm-bootstrap`** (Java lib, Apache-2.0); capabilities depends on it (inline `bridge/` deleted) | ✅ **done + verified** — builds at fluxtion 1.0.8 + bootstrap 0.1.0, 14/14 WASM probes pass |
-| **P2** | Re-home runtime + capabilities into the promoted `fluxtion-wasm-runtime` home; consume published libs; conformance retargets | ⏳ **needs you** — the repo move is a GitHub/infra step (create/restructure the repo). Bootstrap lands top-level in the testharness for now; capabilities already consumes it as a real Maven dep |
+| **P0** | JS runtime productized (v0.1.0); capabilities grid + Order Desk built; bridge proven | ✅ done |
+| **P1** | Extract **`fluxtion-wasm-bootstrap`** (Java lib, Apache-2.0); capabilities depends on it (inline `bridge/` deleted) | ✅ done + verified — fluxtion 1.0.8 + bootstrap 0.1.0, 14/14 WASM probes pass |
+| **P2** | Re-home bootstrap + runtime + capabilities into the **`telaminai/fluxtion-wasm`** repo; testharness becomes the proving ground | ✅ **done** — repo created (`bootstrap/`, `runtime/`, `examples/capabilities/`, `docs/`, aggregator pom); `mvn install` green, 14/14 probes, runtime smoke 6/6; testharness duplicates removed + README repointed |
 | **P3** | Getting-started guide (§5) + hello-SEP | ✅ done — [`getting-started.md`](getting-started.md) |
-| **P4** | `/fluxtion-wasm` site page (§6) — embedded demo, start path, "in development" | ✅ **draft on branch** `fluxtion-wasm-page` (fluxtion-web), NOT on main; svelte-check clean; demo staged under `static/fluxtion-wasm-demo/`. Follow-ups: nav entry, demo fetch/sync (don't commit the wasm long-term) |
-| **P5** | Generator-emitted `JsonHost` + hosted TeaVM compile | 📐 **design only** — [`p5-generator-emitted-host.md`](p5-generator-emitted-host.md); the emit is a deliberate fluxtion-compiler change, not autonomous |
+| **P4** | `/fluxtion-wasm` site page (§6) — embedded demo, start path, "in development" | ✅ **done + on main** (fluxtion-web): page live, dev-nav entry, "Why not just…?" + Java-team framing, embedded Order Desk, on-device `bench()`, `/wasm-introduction` grounding page |
+| **PUB** | **Publish the libs** — `fluxtion-wasm-bootstrap` → repsy, `@telamin/fluxtion-wasm-runtime` → npm (§9) | ⏳ **needs you** (keys/secrets) — pom + CI config to add; the gate for external use and for P5a's value |
+| **P5a** | Generator-emitted `JsonHost` shell + `ReflectionSupplier` | 📐 design ([`p5-generator-emitted-host.md`](p5-generator-emitted-host.md)). **Prototype done:** standalone `JsonHostEmitter` + golden test in `host-emitter/` (compiler-free); the generator wires it in next |
+| **P5b** | Hosted TeaVM compile (playground "WASM project type") | 📐 design only — a metered server stage, the heavy piece |
 
 P1–P4 are independent of the still-spec Tier-1/Tier-2 boundary work in the runtime
 spec; they package what already works.
@@ -238,3 +240,96 @@ spec; they package what already works.
 > `com.telamin.fluxtion.wasm.bootstrap`) and make `fluxtion-wasm-capabilities` depend
 > on it. The module lands top-level in the testharness first, then moves into the
 > promoted `fluxtion-wasm-runtime` home (P2).
+
+---
+
+## 9. Publishing the libs (PUB) — repsy + npm
+
+Two artifacts ship to two registries. Both are public, Apache-2.0 client helpers — **not**
+the metered generator — so they publish freely with no licence gate.
+
+| Artifact | Registry | Coordinates | Consumed by |
+|---|---|---|---|
+| `fluxtion-wasm-bootstrap` (Java) | **repsy** (`fluxtion-public`) | `com.telamin.fluxtion.wasm:fluxtion-wasm-bootstrap` | the capabilities app, the generator-emitted host (P5a), any user WASM project |
+| `@telamin/fluxtion-wasm-runtime` (JS) | **npm** | `@telamin/fluxtion-wasm-runtime` | the browser/Node loader on the `/fluxtion-wasm` page and in user apps |
+
+### 9.1 Java → repsy (mirrors `mongoose-plugins/.github`)
+
+The mongoose-plugins repo is the working reference for the exact repsy mechanics; copy
+its three pieces into `fluxtion-wasm`:
+
+**`pom.xml` — `distributionManagement` + `scm` + `maven-release-plugin`:**
+
+```xml
+<distributionManagement>
+  <repository>
+    <id>repsy-fluxtion</id>
+    <url>https://repo.repsy.io/fluxtion/fluxtion-public</url>
+  </repository>
+</distributionManagement>
+
+<scm>
+  <connection>scm:git:https://github.com/telaminai/fluxtion-wasm.git</connection>
+  <developerConnection>scm:git:https://github.com/telaminai/fluxtion-wasm.git</developerConnection>
+  <url>https://github.com/telaminai/fluxtion-wasm</url>
+  <tag>HEAD</tag>
+</scm>
+```
+
+Consumers read it back from the public repsy mirror:
+
+```xml
+<repository>
+  <id>repsy-fluxtion-public</id>
+  <url>https://repo.repsy.io/mvn/fluxtion/fluxtion-public</url>
+</repository>
+```
+
+**`.github/settings.xml`** — maps the repsy server id to CI env vars (no secrets in-repo):
+
+```xml
+<server>
+  <id>repsy-fluxtion</id>
+  <username>${env.MAVEN_USERNAME}</username>
+  <password>${env.MAVEN_CENTRAL_TOKEN}</password>
+</server>
+```
+
+**`.github/workflows/release.yml`** — `on: push: branches: [release]`, JDK 21 (adopt),
+then `release:prepare release:perform` against the checked-in settings:
+
+```yaml
+on:
+  push:
+    branches: [release]
+# ...
+- run: ./mvnw -B -s .github/settings.xml -Darguments=-DskipTests release:prepare release:perform
+  env:
+    MAVEN_USERNAME: ${{ secrets.REPSY_USER }}
+    MAVEN_CENTRAL_TOKEN: ${{ secrets.REPSY_PASSWORD }}
+    GITHUB_ACTOR: ${{ github.actor }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+A `main.yml` does the plain CI build (`./mvnw -B package -s .github/settings.xml -DskipTests`)
+on push so PRs are gated.
+
+**Release flow:** merge to `release` → workflow tags + publishes to repsy → merge `release`
+back to `main`. **Repo secrets you must add:** `REPSY_USER`, `REPSY_PASSWORD` (plus the
+default `GITHUB_TOKEN`). Only the **`bootstrap/`** module needs `distributionManagement`;
+the aggregator and the `examples/`/`host-emitter/` modules stay unpublished (`<skip>` the
+deploy or omit them from the release reactor).
+
+### 9.2 JS → npm
+
+`runtime/` is already a productized package (v0.1.0). Publish with `npm publish --access public`
+under the `@telamin` scope (needs an npm org + `NPM_TOKEN`); optionally a `publish-npm.yml`
+triggered on the same `release` branch so both artifacts cut together.
+
+### 9.3 Status
+
+⏳ **Blocked on you** — the config above is mechanical to add, but `REPSY_USER` /
+`REPSY_PASSWORD` / `NPM_TOKEN` are yours to provision. Until then the libs build locally
+and the capabilities app consumes `bootstrap` as a reactor dependency; nothing external
+can pull them yet. This is the gate for outside adoption **and** for P5a being useful
+(the emitted host imports `fluxtion-wasm-bootstrap`).
