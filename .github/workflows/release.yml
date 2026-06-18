@@ -30,20 +30,6 @@ jobs:
           MAVEN_USERNAME: ${{ secrets.REPSY_USER }}
           MAVEN_CENTRAL_TOKEN: ${{ secrets.REPSY_PASSWORD }}
 
-      # Best-effort tag of the published version. The deploy above is the part that
-      # matters; a tag hiccup must not fail the job or block the merge below. Version
-      # is read straight from the pom (no second Maven run) — the first <version> in
-      # bootstrap/pom.xml is the project version (the module has no parent).
-      - name: Tag the published version
-        continue-on-error: true
-        run: |
-          VERSION=$(grep -m1 '<version>' bootstrap/pom.xml | sed -E 's/.*<version>([^<]+)<.*/\1/')
-          echo "Publishing tag bootstrap-v$VERSION"
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git tag -f "bootstrap-v$VERSION"
-          git push -f origin "bootstrap-v$VERSION"
-
       - name: Merge release -> main
         uses: devmasx/merge-branch@master
         with:
