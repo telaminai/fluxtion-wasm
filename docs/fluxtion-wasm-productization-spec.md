@@ -273,8 +273,9 @@ a re-deploy of an existing version.
   `${env.MAVEN_CENTRAL_TOKEN}` (no secrets in-repo).
 - **`.github/workflows/release.yml`** — `on: push: branches: [release]`; JDK 21; runs
   `mvn -B -s .github/settings.xml -pl bootstrap -DskipTests deploy` (the `-pl bootstrap`
-  scopes the reactor so the TeaVM example + the host-emitter are not published), tags
-  `bootstrap-v<version>`, then merges `release` → `main`. Env maps
+  scopes the reactor so the TeaVM example + the host-emitter are not published), then
+  merges `release` → `main`. (Plain `deploy` does no git tagging — the published
+  artifact + the pom version are the provenance.) Env maps
   `MAVEN_USERNAME=${{ secrets.REPSY_USER }}`, `MAVEN_CENTRAL_TOKEN=${{ secrets.REPSY_PASSWORD }}`.
 - **`.github/workflows/main.yml`** — CI on push/PR to `main`: builds + tests `bootstrap`
   and `host-emitter` (`-pl bootstrap,host-emitter verify`).
