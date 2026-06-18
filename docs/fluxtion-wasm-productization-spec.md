@@ -212,8 +212,8 @@ server stage — the page describes the developer pipeline, not a one-click clou
 | **P3** | Getting-started guide (§5) + hello-SEP | ✅ done — [`getting-started.md`](getting-started.md) |
 | **P4** | `/fluxtion-wasm` site page (§6) — embedded demo, start path, "in development" | ✅ **done + on main** (fluxtion-web): page live, dev-nav entry, "Why not just…?" + Java-team framing, embedded Order Desk, on-device `bench()`, `/wasm-introduction` grounding page |
 | **PUB** | **Publish the libs** — `fluxtion-wasm-bootstrap` → Repsy Maven, `@telamin/fluxtion-wasm-runtime` → Repsy npm (§9) | ✅ **config landed** — both pipelines wired, `REPSY_USER`/`REPSY_PASSWORD` set; push to `release` / `release-npm` to cut |
-| **P5a** | Generator-emitted `JsonHost` shell + `ReflectionSupplier` | 📐 design ([`p5-generator-emitted-host.md`](p5-generator-emitted-host.md)). **Prototype done:** standalone `JsonHostEmitter` + golden test in `host-emitter/` (compiler-free); the generator wires it in next |
-| **P5b** | Hosted TeaVM compile (playground "WASM project type") | 📐 design only — a metered server stage, the heavy piece |
+| **P5a** | Generator-emitted `JsonHost` shell + `ReflectionSupplier`, returned as the **metered** bundle in the compiler response | ✅ **implemented** ([`p5-generator-emitted-host.md`](p5-generator-emitted-host.md)) on `feature/p5a-generate-wasm-host` (both repos): `generateWasmHost` flag → server renders host + main + `ReflectionSupplier`/SPI → gated at the HTTP boundary → client writes. Unit + e2e tested; not yet pushed/merged |
+| **P5b** | ~~Hosted TeaVM compile~~ — **retracted** | ❌ not a thing: TeaVM→WASM is a **client-side** compile the user runs locally. The metered piece is the P5a host bundle, not a server compile stage |
 
 P1–P4 are independent of the still-spec Tier-1/Tier-2 boundary work in the runtime
 spec; they package what already works.

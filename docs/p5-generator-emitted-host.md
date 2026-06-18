@@ -1,10 +1,56 @@
-# P5 design — generator-emitted WASM host (and the hosted compile)
+# P5a — generator-emitted WASM host (implemented)
 
-**Status:** design only (2026-06-17). P5 of the
-[productization spec](fluxtion-wasm-productization-spec.md). Not implemented — the
-emit lives in `fluxtion-compiler` (generator-core), changed deliberately, not
-overnight. This pins *what* to emit and *where* it hooks so the implementation is
-mechanical.
+**Status:** ✅ **implemented** (2026-06-18) on branch `feature/p5a-generate-wasm-host`
+(in both `fluxtion` and `fluxtion-compiler`). P5a of the
+[productization spec](fluxtion-wasm-productization-spec.md). Covers the host shell **and**
+the `@ServiceRegistered` `ReflectionSupplier`. The "Implemented (as built)" section below
+is authoritative; the original design notes follow it for context.
+
+---
+
+## 0. Implemented (as built) — supersedes the design notes where they differ
+
+Two corrections to the original design emerged while building:
+
+1. **The host bundle is the metered deliverable, returned *from the generator*** — not
+   emitted locally by the builder. It is rendered **server-side** and carried back in the
+   compiler response, so it can be **withheld behind an entitlement gate**. Emitting it
+   client-side would give the paid artifact away for free. The gate is at the HTTP
+   boundary: `Main.handleGenerateSource` → `isEntitledToWasmHost(req)` (a hook returning
+   `true` today; wire it to the real plan/API-key tier).
+2. **TeaVM→WASM is a *client-side* compile** (the user runs `teavm-maven-plugin` locally),
+   **not** a server stage. The metering is purely "do you get the host bundle," nothing is
+   "hosted compile." **This supersedes §4 below** — there is no metered server-side TeaVM
+   stage.
+
+**Carrier.** `dto.wasmFiles` (request side `dto.wasmHostSpec`) and
+`RemoteGenerationResponse.wasmFiles` — a `Map<name → content>`, mirroring how
+`reachabilityMetadataJson` rides the DTO. Bare `*.java` names land in the SEP's source
+package; any other key (e.g. `META-INF/services/org.teavm.classlib.ReflectionSupplier`) is
+a resources-root-relative path. The client (`EventProcessorGenerator.writeWasmFiles`)
+path-routes each entry to disk.
+
+**Bundle contents.** `JsonHost.java` + `JsonHostMain.java` always; plus
+`<Sep>ReflectionSupplier.java` + its `META-INF/services` SPI registration **when** the SEP
+uses `@ServiceRegistered` — the WASM twin of GraalVM reflect-config, rendered from the same
+`ReachabilityMetadataAnalyser` data (a wasm-only build runs the analysis but does **not**
+write `reachability-metadata.json`).
+
+**Config.** `FluxtionCompilerConfig.generateWasmHost(boolean)` + `wasmHostClassName`
+(default `JsonHost`), opt-in like `generateReachabilityMetadata`.
+
+**Where the code lives.**
+- `fluxtion` (open): config flag; `WasmHostSpec` + `wasmFiles` carriers on the DTO/response;
+  builder sets the spec, runs the analysis, path-routes + writes the returned files.
+- `fluxtion-compiler` (closed): `JsonHostEmitter` + `WasmReflectionSupplierEmitter` render
+  the bundle in `SimpleEventProcessorModelGeneratorImpl.generate(dto)`; `Main` gates it.
+
+**Tests.** Emitter units (`WasmEmittersTest`, 5) + end-to-end
+(`WasmHostGenerationTest`, 2 — `Fluxtion.compile(...generateWasmHost(true))` writes host +
+main + supplier + SPI; nothing when off; no native json on a wasm-only build).
+
+**Cross-repo coupling.** The runtime carriers land in `fluxtion` 1.0.9; the
+`fluxtion-compiler` branch pins `1.0.9-SNAPSHOT` until that releases (then → `1.0.9`).
 
 ---
 
@@ -103,15 +149,16 @@ that the generator later calls. Build it first, outside the compiler, then wire 
 
 ---
 
-## 4. The hosted TeaVM compile (separate, metered)
+## 4. ~~The hosted TeaVM compile (separate, metered)~~ — RETRACTED
 
-Distinct from emitting the host: the **playground "WASM project type"** — a server-side
-stage that, after the existing cloud generation, runs TeaVM to produce `classes.wasm`
-and serves it to the browser. See [`in-browser-compile-spec.md`](in-browser-compile-spec.md).
+> **This section was wrong — see §0.** TeaVM→WASM is a **client-side** compile: the user
+> runs `teavm-maven-plugin` (or TeaVM directly) on their own machine. There is **no**
+> metered server-side TeaVM stage. The metered thing is the **host bundle in the compiler
+> return** (gated at the HTTP boundary, §0) — withholding it is the paywall; the actual
+> WASM compile is free and local.
 
-- TeaVM is a JVM tool (~seconds/SEP) — it **cannot** run in the browser; it's a new
-  metered server stage, a pricier tier gated behind generation (fits the
-  cloud-compilation revenue model).
+What remains true and useful from the original note:
+
 - The browser side is entirely `@telamin/fluxtion-wasm-runtime` — once the wasm is
   produced, "load wasm, drive it" with no bespoke glue.
 - Do NOT conflate with the in-browser CheerpJ DSL *preview* (a different path:
@@ -121,18 +168,25 @@ and serves it to the browser. See [`in-browser-compile-spec.md`](in-browser-comp
 
 ## 5. Acceptance
 
-- `generateWasmHost(true)` on the capabilities SEP emits a `JsonHost` byte-identical
-  (modulo the processor name) to the hand-written one; capabilities builds + all WASM
-  probes pass with the emitted host.
-- A SEP with zero hand-written host Java compiles to a working wasm driven by
-  `proc.jsonBridge('JsonHost')`.
-- `@ServiceRegistered` SEPs get their `ReflectionSupplier` emitted alongside.
+- ✅ `generateWasmHost(true)` emits `JsonHost` of the proven shape (`new JsonBridgeHost`
+  delegation; `<Proc> sep = new <Proc>()` the only SEP-specific line) into the SEP package,
+  plus its `@JSExportClasses` main — verified by `WasmEmittersTest` + `WasmHostGenerationTest`.
+- ✅ `@ServiceRegistered` SEPs get a `ReflectionSupplier` + `META-INF/services` SPI emitted
+  alongside, rendered from the reachability analysis.
+- ✅ flag off → nothing emitted; wasm-only build → no `reachability-metadata.json`.
+- ⏳ **Remaining (follow-up):** migrate the capabilities example to consume the *emitted*
+  host (replace the hand-written `host/JsonHost.java`) and confirm the 14 WASM probes pass
+  end-to-end through a real TeaVM build. The emitted host targets the SEP package; the
+  capabilities app keeps a hand-written `ExportMain` because it bundles app-specific hosts
+  (`CapHost`, `OrderDeskHost`) the generator can't know about — exactly the "app-specific
+  wiring stays hand-written" caveat in §2.
 
 ---
 
 ## 6. Honest status
 
-Design only. The lib (`fluxtion-wasm-bootstrap`) and its stable API are ready (P1);
-the emit is a contained generator-core change best done with the compiler in front of
-you, not autonomously. Recommended first step: the standalone `JsonHostEmitter` +
-golden test, then the `generateWasmHost` flag.
+✅ **Implemented** (see §0) on `feature/p5a-generate-wasm-host` in both repos, committed,
+unit + e2e tested, **not yet pushed/merged**. Before merge: release `fluxtion` 1.0.9 and
+flip the compiler branch's `fluxtion.base.version` `1.0.9-SNAPSHOT → 1.0.9`. The entitlement
+gate is a hook (`isEntitledToWasmHost` returns `true`) awaiting the real plan/API-key check.
+Follow-ups: the capabilities migration (§5) and wiring the gate.
