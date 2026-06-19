@@ -14,7 +14,7 @@ below).
 See `docs/SPEC.md` for the design, `docs/PHASING.md` for the full probed
 capability table, and `CLAUDE.md` to hand the project to an AI agent.
 
-## What it found (fluxtion-runtime 1.0.8, TeaVM 0.14.1)
+## What it found (fluxtion 1.0.9, compiler 1.0.49, TeaVM 0.14.1)
 
 | Capability | WASM |
 |---|---|
@@ -25,13 +25,14 @@ capability table, and `CLAUDE.md` to hand the project to an AI agent.
 | Exported services (`@ExportService`) | ✅ |
 | Audit logging + change log level (`addEventAudit`, de-JUL’d in 1.0.8) | ✅ |
 | Service/callback delivered **as an event** | ✅ |
-| Injected services (`@ServiceRegistered`) | ❌ reflective registry (`ServiceRegistryNode#scanNode`) |
+| Injected services (`@ServiceRegistered`) | ✅ generated `ReflectionSupplier` (the TeaVM reflect-config twin, emitted by `generateWasmHost`) |
 
 (Full detail, root causes, and the upstream fixes are in `docs/PHASING.md`.)
 
-> **Requires fluxtion ≥ 1.0.8** (the audit path uses the de-JUL’d runtime
-> `EventLogManager`). To build against released 1.0.7, regenerate with the
-> `-Pshim-audit` profile (JUL-free shim) — see *Testing a runtime fix*.
+> **Requires fluxtion ≥ 1.0.9 + compiler ≥ 1.0.49.** The host (`JsonHost`), its
+> `@JSExportClasses` main, and the `@ServiceRegistered` `ReflectionSupplier` are
+> generator-emitted (`compilerCfg.generateWasmHost(true)`), not hand-written. The audit
+> path uses the de-JUL’d runtime `EventLogManager` (since 1.0.8).
 
 ## Run it
 
@@ -110,35 +111,29 @@ cloud generator), and versions are overridable on the CLI.
 
 ```bash
 # 1. install your snapshots to ~/.m2 (runtime + builder, and generator-core if you
-#    changed the generator)
-#    e.g. in the fluxtion / fluxtion-compiler repos:  mvn -DskipTests install
+#    changed the generator), e.g. in the fluxtion / fluxtion-compiler repos:
+#      mvn -DskipTests install
 
-# 2. regenerate the SEP with your snapshots, generated LOCALLY. Add
-#    -Dcap.runtimeAudit=true to test the REAL EventLogManager (not the JUL-free shim).
-mvn -Pfix-validation -Dfluxtion.version=1.0.8-SNAPSHOT -Dgenerator.version=1.0.48-SNAPSHOT \
-    [-Dcap.runtimeAudit=true] \
-    compile exec:java -Dexec.mainClass=com.telamin.fluxtion.wasm.cap.gen.GenerateCapabilities
-cp target/generated-sources/fluxtion/com/telamin/fluxtion/wasm/cap/generated/CapabilitiesProcessor.java \
-   src/main/java/com/telamin/fluxtion/wasm/cap/generated/
+# 2. regenerate the SEP + WASM host LOCALLY (fix-validation forces local generation;
+#    regen writes straight into src/main/java). Match versions to your snapshots.
+mvn -Pregen,fix-validation -Dfluxtion.version=1.0.10-SNAPSHOT -Dgenerator.version=1.0.50-SNAPSHOT \
+    compile exec:java
 
 # 3. build + run the matrix against the snapshots
-mvn -Pfix-validation -Dfluxtion.version=1.0.8-SNAPSHOT clean install
+mvn -Dfluxtion.version=1.0.10-SNAPSHOT clean install
 node probe/run-probes.mjs
 ```
 
 Two kinds of fix:
 
-- **`ServiceRegistryNode` / M4 static wiring (generator fix).** The `injectedService`
-  row flips ❌→✅ once the generated SEP carries static `wireServices` instead of the
-  reflective registry. **Must regenerate with `-Pfix-validation`** (local generator),
-  or the cloud's deployed generator is used and nothing changes.
+- **Generator fix** (the SEP, or the emitted host / `ReflectionSupplier`). **Must
+  regenerate with `-Pfix-validation`** (local generator) or the cloud's deployed
+  generator is used and nothing changes.
 
-- **`EventLogManager` de-JUL (runtime fix).** Regenerate with `-Dcap.runtimeAudit=true`
-  so the SEP uses the real `addEventAudit(...)` instead of the `WasmEventLogManager`
-  shim. Then build: compiles + audit ✓ = fixed; build fails on `java.util.logging`
-  (or `ForkedTriggerTask`/ForkJoin) = not yet. (Runtime-only, so generation source
-  doesn't matter — but you still bump `<fluxtion.version>` so the fixed runtime is
-  what TeaVM compiles.)
+- **Runtime fix** (e.g. de-JUL'ing a runtime class so TeaVM can compile it). Runtime-only,
+  so the generated source doesn't matter — just bump `<fluxtion.version>` so the fixed
+  runtime is what TeaVM compiles.
 
-The default build (no profile, no toggle) stays on released 1.0.7 + cloud generation
-+ the JUL-free shim, and remains green.
+The default build (no profile) uses the released **fluxtion 1.0.9 + compiler 1.0.49**: the
+committed SEP plus the generator-emitted host (`JsonHost` + `ReflectionSupplier`), and
+remains green.

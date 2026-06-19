@@ -5,9 +5,9 @@ import com.telamin.fluxtion.runtime.audit.EventLogNode;
 
 /**
  * Audit-logging probe. Extends {@link EventLogNode} to get {@code auditLog}, and
- * writes structured audit entries when it handles a String event. With a
- * {@code WasmEventLogManager} auditor wired in (JUL-free), these entries reach the
- * registered {@code LogRecordListener} in WASM.
+ * writes structured audit entries when it handles a String event. With the runtime
+ * {@code EventLogManager} auditor wired in (de-JUL'd in fluxtion 1.0.8), these entries
+ * reach the registered {@code LogRecordListener} in WASM.
  */
 public class LoggingNode extends EventLogNode {
 

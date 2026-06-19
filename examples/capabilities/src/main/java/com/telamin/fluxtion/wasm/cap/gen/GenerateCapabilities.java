@@ -21,7 +21,6 @@ import com.telamin.fluxtion.wasm.cap.app.OrderRiskNode;
 import com.telamin.fluxtion.wasm.cap.app.PriceNode;
 import com.telamin.fluxtion.wasm.cap.app.PriceTick;
 import com.telamin.fluxtion.wasm.cap.app.Rejected;
-import com.telamin.fluxtion.wasm.cap.audit.WasmEventLogManager;
 
 /**
  * Regenerates the capability SEP. Run manually:
@@ -95,19 +94,10 @@ public class GenerateCapabilities {
                             .map(CapFuncs::tradeToJson).sink("tradeOut");
                     // an audit-logging node
                     cfg.addNode(new LoggingNode(), "logger");
-                    // Audit:
-                    //  - default: the REAL runtime EventLogManager via addEventAudit.
-                    //    De-JUL'd in fluxtion 1.0.8 (static Logger + JULLogRecordListener
-                    //    default + the ForkedTriggerTask branch removed), so it now
-                    //    compiles + runs in WASM. REQUIRES fluxtion >= 1.0.8.
-                    //  - -Dcap.shimAudit=true: the JUL-free WasmEventLogManager shim,
-                    //    only needed to build against released 1.0.7 (where the runtime
-                    //    EventLogManager still pulls java.util.logging).
-                    if (Boolean.getBoolean("cap.shimAudit")) {
-                        cfg.addAuditor(new WasmEventLogManager().tracingOn(LogLevel.INFO), "eventLogger");
-                    } else {
-                        cfg.addEventAudit(LogLevel.INFO);
-                    }
+                    // Audit: the REAL runtime EventLogManager via addEventAudit. De-JUL'd in
+                    // fluxtion 1.0.8 (static Logger + JULLogRecordListener default), so it compiles
+                    // + runs in WASM. Requires fluxtion >= 1.0.8 (we're on 1.0.9).
+                    cfg.addEventAudit(LogLevel.INFO);
                 },
                 compilerCfg -> compilerCfg
                         .packageName("com.telamin.fluxtion.wasm.cap.generated")

@@ -20,9 +20,9 @@ import java.util.Set;
  * ✅ on a value and ❌ + message on a throw. The wasm module's {@code CapHost} is
  * a thin {@code @JSExport} wrapper over this class.
  *
- * <p>Audit logging works because the SEP uses a JUL-free {@code WasmEventLogManager}
- * auditor (the runtime's {@code EventLogManager} pulls {@code java.util.logging},
- * which TeaVM can't compile).
+ * <p>Audit logging works because the runtime {@code EventLogManager} was de-JUL'd in
+ * fluxtion 1.0.8 (static Logger + JULLogRecordListener default), so it compiles and
+ * runs in WASM.
  */
 public final class CapabilitiesHost {
 

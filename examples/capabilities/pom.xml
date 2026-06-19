@@ -215,32 +215,5 @@
                 </plugins>
             </build>
         </profile>
-
-        <!--
-          shim-audit — generate the SEP with the JUL-free WasmEventLogManager shim
-          instead of the real EventLogManager. Only needed to build against RELEASED
-          1.0.7 (where EventLogManager still pulls java.util.logging); on 1.0.8+ the
-          default (real addEventAudit) works in WASM. Use with -Pregen.
-            mvn -Pregen,shim-audit -Dfluxtion.version=1.0.7 compile exec:java
-        -->
-        <profile>
-            <id>shim-audit</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <configuration>
-                            <systemProperties>
-                                <systemProperty>
-                                    <key>cap.shimAudit</key>
-                                    <value>true</value>
-                                </systemProperty>
-                            </systemProperties>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
     </profiles>
 </project>
