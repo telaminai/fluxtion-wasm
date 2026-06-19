@@ -41,6 +41,7 @@ import com.telamin.fluxtion.runtime.service.ServiceListener;
 import com.telamin.fluxtion.runtime.service.ServiceRegistryNode;
 import com.telamin.fluxtion.runtime.time.Clock;
 import com.telamin.fluxtion.runtime.time.ClockStrategy.ClockStrategyEvent;
+import com.telamin.fluxtion.wasm.bootstrap.StringEvent;
 import com.telamin.fluxtion.wasm.cap.Calculator;
 import com.telamin.fluxtion.wasm.cap.CalculatorNode;
 import com.telamin.fluxtion.wasm.cap.CallbackReceiver;
@@ -52,7 +53,6 @@ import com.telamin.fluxtion.wasm.cap.NumberDecoderNode;
 import com.telamin.fluxtion.wasm.cap.PriceLookupNode;
 import com.telamin.fluxtion.wasm.cap.ServiceEvent;
 import com.telamin.fluxtion.wasm.cap.StringConverter;
-import com.telamin.fluxtion.wasm.bootstrap.StringEvent;
 import com.telamin.fluxtion.wasm.cap.SymbolEvent;
 import com.telamin.fluxtion.wasm.cap.Trade;
 import com.telamin.fluxtion.wasm.cap.TradeHandler;
@@ -86,8 +86,8 @@ import java.util.function.Consumer;
  *   <li>com.telamin.fluxtion.runtime.output.SinkDeregister
  *   <li>com.telamin.fluxtion.runtime.output.SinkRegistration
  *   <li>com.telamin.fluxtion.runtime.time.ClockStrategy.ClockStrategyEvent
- *   <li>com.telamin.fluxtion.wasm.cap.ServiceEvent
  *   <li>com.telamin.fluxtion.wasm.bootstrap.StringEvent
+ *   <li>com.telamin.fluxtion.wasm.cap.ServiceEvent
  *   <li>com.telamin.fluxtion.wasm.cap.SymbolEvent
  *   <li>com.telamin.fluxtion.wasm.cap.Trade
  *   <li>com.telamin.fluxtion.wasm.cap.app.Accepted
@@ -562,11 +562,11 @@ public class CapabilitiesProcessor
     } else if (event instanceof ClockStrategyEvent) {
       ClockStrategyEvent typedEvent = (ClockStrategyEvent) event;
       handleEvent(typedEvent);
-    } else if (event instanceof ServiceEvent) {
-      ServiceEvent typedEvent = (ServiceEvent) event;
-      handleEvent(typedEvent);
     } else if (event instanceof StringEvent) {
       StringEvent typedEvent = (StringEvent) event;
+      handleEvent(typedEvent);
+    } else if (event instanceof ServiceEvent) {
+      ServiceEvent typedEvent = (ServiceEvent) event;
       handleEvent(typedEvent);
     } else if (event instanceof SymbolEvent) {
       SymbolEvent typedEvent = (SymbolEvent) event;
@@ -699,14 +699,6 @@ public class CapabilitiesProcessor
     afterEvent();
   }
 
-  public void handleEvent(ServiceEvent typedEvent) {
-    auditEvent(typedEvent);
-    //Default, no filter methods
-    auditInvocation(callbackReceiver, "callbackReceiver", "onService", typedEvent);
-    callbackReceiver.onService(typedEvent);
-    afterEvent();
-  }
-
   public void handleEvent(StringEvent typedEvent) {
     auditEvent(typedEvent);
     switch (typedEvent.filterString()) {
@@ -778,6 +770,14 @@ public class CapabilitiesProcessor
       auditInvocation(pushFlowFunction_22, "pushFlowFunction_22", "push", typedEvent);
       isDirty_pushFlowFunction_22 = pushFlowFunction_22.push();
     }
+    afterEvent();
+  }
+
+  public void handleEvent(ServiceEvent typedEvent) {
+    auditEvent(typedEvent);
+    //Default, no filter methods
+    auditInvocation(callbackReceiver, "callbackReceiver", "onService", typedEvent);
+    callbackReceiver.onService(typedEvent);
     afterEvent();
   }
 
@@ -1432,11 +1432,6 @@ public class CapabilitiesProcessor
       auditEvent(typedEvent);
       auditInvocation(clock, "clock", "setClockStrategy", typedEvent);
       clock.setClockStrategy(typedEvent);
-    } else if (event instanceof ServiceEvent) {
-      ServiceEvent typedEvent = (ServiceEvent) event;
-      auditEvent(typedEvent);
-      auditInvocation(callbackReceiver, "callbackReceiver", "onService", typedEvent);
-      callbackReceiver.onService(typedEvent);
     } else if (event instanceof StringEvent) {
       StringEvent typedEvent = (StringEvent) event;
       auditEvent(typedEvent);
@@ -1472,6 +1467,11 @@ public class CapabilitiesProcessor
         filterFlowFunction_17.inputUpdated(handlerStringEvent);
         filterFlowFunction_20.inputUpdated(handlerStringEvent);
       }
+    } else if (event instanceof ServiceEvent) {
+      ServiceEvent typedEvent = (ServiceEvent) event;
+      auditEvent(typedEvent);
+      auditInvocation(callbackReceiver, "callbackReceiver", "onService", typedEvent);
+      callbackReceiver.onService(typedEvent);
     } else if (event instanceof SymbolEvent) {
       SymbolEvent typedEvent = (SymbolEvent) event;
       auditEvent(typedEvent);

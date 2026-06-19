@@ -24,12 +24,12 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <fluxtion.version>1.0.8</fluxtion.version>
+        <fluxtion.version>1.0.9</fluxtion.version>
         <teavm.version>0.14.1</teavm.version>
         <junit.version>4.13.2</junit.version>
         <!-- only used by the fix-validation profile (local generation); override on
-             the CLI to match your snapshot, e.g. -Dgenerator.version=1.0.49-SNAPSHOT -->
-        <generator.version>1.0.48</generator.version>
+             the CLI to match a snapshot, e.g. -Dgenerator.version=1.0.50-SNAPSHOT -->
+        <generator.version>1.0.49</generator.version>
     </properties>
 
     <dependencies>

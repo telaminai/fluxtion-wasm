@@ -115,7 +115,10 @@ public class GenerateCapabilities {
                         .outputDirectory(outDir)
                         .writeSourceToFile(true)
                         .copySourceToResourcesDirectory(false)
-                        .compileSource(false));
+                        .compileSource(false)
+                        // emit the WASM host bundle (JsonHost + Main + ReflectionSupplier + SPI)
+                        // instead of hand-writing it — fluxtion >= 1.0.9, generator >= 1.0.49.
+                        .generateWasmHost(true));
         System.out.println("[gen] CapabilitiesProcessor written under " + outDir);
     }
 }
