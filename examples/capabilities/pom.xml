@@ -43,7 +43,7 @@
         <dependency>
             <groupId>com.telamin.fluxtion</groupId>
             <artifactId>fluxtion-wasm-bootstrap</artifactId>
-            <version>0.1.0</version>
+            <version>0.1.1</version>
         </dependency>
         <!-- builder is only used by the manual generator (GenerateCapabilities);
              TeaVM compiles from ExportMain and never reaches it -->

@@ -52,6 +52,10 @@ public final class JsonBridgeHost {
         this.sep = sep;
         // tap the audit stream so the JS side can show log records
         sep.onEvent(new EventLogControlEvent(record -> audit.add(record.toString())));
+        // Surface events that reach no @OnEventHandler instead of dropping them silently — the #1
+        // "I sent an event and nothing happened" in the tester (e.g. a type with no decoder). Routed
+        // into the same audit buffer so drainAudit() / the audit trail shows it.
+        sep.setUnKnownEventHandler(e -> audit.add("unhandledEvent: " + e));
     }
 
     // ── ingress ──────────────────────────────────────────────────────────────
