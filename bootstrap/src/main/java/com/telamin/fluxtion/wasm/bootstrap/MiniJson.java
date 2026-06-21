@@ -61,4 +61,39 @@ public final class MiniJson {
             return defaultValue;
         }
     }
+
+    /** Extract a long field, or {@code defaultValue} if absent/unparseable. */
+    public static long longField(String json, String key, long defaultValue) {
+        String s = string(json, key);
+        if (s == null || s.isEmpty()) {
+            return defaultValue;
+        }
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /** Extract a double field, or {@code defaultValue} if absent/unparseable. */
+    public static double doubleField(String json, String key, double defaultValue) {
+        String s = string(json, key);
+        if (s == null || s.isEmpty()) {
+            return defaultValue;
+        }
+        try {
+            return Double.parseDouble(s);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /** Extract a boolean field ({@code true}/{@code false}), or {@code defaultValue} if absent. */
+    public static boolean boolField(String json, String key, boolean defaultValue) {
+        String s = string(json, key);
+        if (s == null || s.isEmpty()) {
+            return defaultValue;
+        }
+        return "true".equalsIgnoreCase(s) || "1".equals(s);
+    }
 }
