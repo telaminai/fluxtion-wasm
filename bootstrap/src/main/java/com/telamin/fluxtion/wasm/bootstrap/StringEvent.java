@@ -30,4 +30,14 @@ public final class StringEvent implements Event {
     public String payload() {
         return payload;
     }
+
+    /**
+     * Readable form for audit logs / debuggers — e.g. {@code StringEvent[number]{"value":21}}.
+     * Without this the default {@code Object.toString()} shows an identity hash (and in
+     * TeaVM/WASM, the opaque {@code <java_object>@<hash>}), which is meaningless in an audit trail.
+     */
+    @Override
+    public String toString() {
+        return "StringEvent[" + filter + "]" + payload;
+    }
 }
